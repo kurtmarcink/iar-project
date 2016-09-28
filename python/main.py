@@ -109,29 +109,35 @@ def read_counts(s):
     return _parse_sensor_string(count_string)
 
 
+def set_wheel_positions(s, left_count, right_count):
+    counts = _parse_sensor_string(send_command(s, "H"))
+    return send_command(s, "C," + str(counts[0] + left_count) + "," + str(counts[1] + right_count))
+
+
+def turn_left(s):
+    return set_wheel_positions(s, -510, 510)
+
+
+def turn_right(s):
+    return set_wheel_positions(s, 510, -510)
+
+
+def is_blocked_ahead(s):
+    ir_sum = sum(read_ir(s)[1:4])
+    print ir_sum
+    if ir_sum > 900:
+        return True
+    return False
+
+
 if __name__ == "__main__":
-    # if this file is run as a script, it will run through some function calls
     serial = open_connection()
-
-    print "\nResetting wheel encoders!"
-    set_counts(serial, 0, 0)
-
-    print "\nGoing forwards for 1 second!"
     go(serial, 2)
-    time.sleep(1)
-
-    print "\nTurning for 1 second!"
-    turn(serial, -2, 2)
-    time.sleep(1)
-
-    print "\nStopping!"
-    stop(serial)
-
-    print "\nReading wheel encoders!"
-    print "PARSED   : " + str(read_counts(serial))
-
-    print "\nCollecting reflected IR readings!"
-    print "PARSED   : " + str(read_ir(serial))
-
-    print "\nCollecting ambient IR readings!"
-    print "PARSED   : " + str(read_ambient(serial))
+    try:
+        while(True):
+            if is_blocked_ahead(serial):
+                turn_right(serial)
+                time.sleep(1)
+                go(serial, 2)
+    except KeyboardInterrupt:
+        stop(serial)
