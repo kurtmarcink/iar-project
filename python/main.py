@@ -2,6 +2,7 @@
 
 import time
 import serial
+from robot import Robot
 
 """
 A collection of functions for interfacing with a Khepera-II robot over serial
@@ -24,21 +25,21 @@ def open_connection(port="/dev/ttyS0", baudrate=9600,
     return s
 
 
-def close_connection(s):
-    if s.isOpen():
-        s.close()
+def close_connection(robot):
+    if robot.conn.isOpen():
+        robot.conn.close()
 
 
-def send_command(s, command, verbose=True):
+def send_command(robot, command, verbose=True):
     # we should check if we have built up a backlog of serial messages from the
     # Khepera. If there is a backlog, we should read out of the serial buffer
     # so that future communications aren't messed up.
-    if s.inWaiting() > 0:
+    if robot.conn.inWaiting() > 0:
         if verbose:
             print "WARNING! Messages were waiting to be read!"
             print "This may be indicative of a problem elsewhere in your code."
-        while s.inWaiting() > 0:
-            message = s.readline()[:-1]
+        while robot.conn.inWaiting() > 0:
+            message = robot.conn.readline()[:-1]
             if verbose:
                 print message
 
@@ -46,10 +47,10 @@ def send_command(s, command, verbose=True):
     # character before sending it to the Khepera
     if command[-1] != "\n":
         command += "\n"
-    s.write(command)
+    robot.conn.write(command)
 
     # we check for a response from the Khepera
-    answer = s.readline()
+    answer = robot.conn.readline()
 
     # now we can check if the response from the Khepera matches our
     # expectations
@@ -63,21 +64,21 @@ def send_command(s, command, verbose=True):
     return answer
 
 
-def set_speeds(s, left, right):
+def set_speeds(robot, left, right):
     # MAX = 127
-    return send_command(s, "D," + str(int(left)) + "," + str(int(right)))
+    return send_command(robot, "D," + str(int(left)) + "," + str(int(right)))
 
 
-def go(s, speed):
-    return set_speeds(s, speed, speed)
+def go(robot, speed):
+    return set_speeds(robot, speed, speed)
 
 
-def stop(s):
-    return go(s, 0)
+def stop(robot):
+    return go(robot, 0)
 
 
-def turn(s, left, right):
-    return set_speeds(s, left, right)
+def turn(robot, left, right):
+    return set_speeds(robot, left, right)
 
 
 def _parse_sensor_string(sensor_string):
@@ -85,19 +86,21 @@ def _parse_sensor_string(sensor_string):
         return -1
     else:
         # we need to remove some superfluous characters in the returned message
-        sensor_string = sensor_string[2:-2]
+        sensor_string = sensor_string[2:].rstrip(' \t\n\r')
+
         # and cast the comma separated sensor readings to integers
         sensor_vals = [int(ss) for ss in sensor_string.split(",")]
+
         return sensor_vals
 
 
-def read_ir(s):
-    ir_string = send_command(s, "N")
+def read_ir(robot):
+    ir_string = send_command(robot, "N")
     return _parse_sensor_string(ir_string)
 
 
-def read_ambient(s):
-    ambient_string = send_command(s, "O")
+def read_ambient(robot):
+    ambient_string = send_command(robot, "O")
     return _parse_sensor_string(ambient_string)
 
 
@@ -105,44 +108,70 @@ def set_counts(s, left_count, right_count):
     return send_command(s, "G," + str(left_count) + "," + str(right_count))
 
 
-def read_counts(s):
-    count_string = send_command(s, "H")
+def read_counts(robot):
+    count_string = send_command(robot, "H")
     return _parse_sensor_string(count_string)
 
 
-def set_wheel_positions(s, left_count, right_count):
-    counts = _parse_sensor_string(send_command(s, "H"))
-    return send_command(s, "C," + str(counts[0] + left_count) + "," + str(counts[1] + right_count))
+def set_wheel_positions(robot, left_count, right_count):
+    counts = _parse_sensor_string(send_command(robot, "H"))
+    return send_command(robot, "C," + str(counts[0] + left_count) + "," + str(counts[1] + right_count))
 
 
-def turn_left(s):
-    return set_wheel_positions(s, -510, 510)
+def adjust_direction(robot, ir_result):
+    left_sensor = ir_result[0]
+    right_sensor = ir_result[5]
+
+    left_front_sensors = ir_result[1:3]
+    right_front_sensors = ir_result[3:5]
+
+    if left_sensor > 300 and all([left_sensor > other and other <= 250 for other in left_front_sensors[1:]]):
+        print "in left"
+        return False
+
+    if right_sensor > 300 and all([right_sensor > other and other <= 250 for other in right_front_sensors[0:2]]):
+        print "in right"
+        return False
+
+    for sensor in left_front_sensors[1:]:
+        if sensor > 200:
+            set_wheel_positions(robot, 50, -50)
+            return True
+
+    for sensor in right_front_sensors[0:2]:
+        if sensor > 200:
+            set_wheel_positions(robot, -50, 50)
+            return True
 
 
-def turn_right(s):
-    return set_wheel_positions(s, 510, -510)
+def is_close_to_something(ir_result):
+    return any([reading > 200 for reading in ir_result])
 
 
-def is_blocked_ahead(s):
-    ir_sum = sum(read_ir(s)[1:4])
-    print ir_sum
-    if ir_sum > 900:
-        return True
-    return False
+def main():
+    robot = Robot(open_connection())
+    go(robot, 4)
 
+    try:
+        while True:
+            ir_result = read_ir(robot)
+
+            if is_close_to_something(ir_result):
+                if not adjust_direction(robot, ir_result):
+                    go(robot, 4)
+
+                time.sleep(.2)
+
+            else:
+                go(robot, 4)
+
+            time.sleep(.025)
+
+    except KeyboardInterrupt:
+        stop(robot)
 
 if __name__ == "__main__":
-    serial = open_connection()
-    go(serial, 2)
-    try:
-        while(True):
-            if is_blocked_ahead(serial):
-                turn_right(serial)
-                time.sleep(1)
-                go(serial, 2)
-    except KeyboardInterrupt:
-        stop(serial)
-
+    main()
 # Wall-following
 # If following a wall and get too close or far (500=good), curve short time
 # Short enough to block while turning? Else check time at start of turn, set exp
