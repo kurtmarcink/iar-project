@@ -3,7 +3,7 @@
 
 import time
 import serial
-from robot import Robot
+from robot import Robot, Wall
 
 """
 A collection of functions for interfacing with a Khepera-II robot over serial
@@ -126,33 +126,33 @@ def avoid_obstacle(robot, ir_result):
     right_front_sensors = ir_result[3:5]
 
     if any([sensor > 120 for sensor in left_front_sensors + right_front_sensors]):
-        if robot.following_wall == 1: # Left wall
+        if robot.following_wall == Wall.LEFT:
             turn(robot, 2, -2)
-            robot.following_wall = 0
+            robot.following_wall = Wall.NONE
             robot.turning_to_evade = True
             return True
-        elif robot.following_wall == 2: # Right wall
-            robot.following_wall = 0
+        elif robot.following_wall == Wall.RIGHT:
+            robot.following_wall = Wall.NONE
             turn(robot, -2, 2)
             robot.turning_to_evade = True
             return True
     if any([sensor > 120 for sensor in left_front_sensors]):
-        robot.following_wall = 0
+        robot.following_wall = Wall.NONE
         turn(robot, 2, -2)
         robot.turning_to_evade = True
         return True
     if any([sensor > 120 for sensor in right_front_sensors]):
-        robot.following_wall = 0
-#            set_wheel_positions(robot, -50, 50)
+        robot.following_wall = Wall.NONE
         turn(robot, -2, 2)
         robot.turning_to_evade = True
         return True
+
 
 def adjust_for_wall(robot, ir_result):
     left_sensor = ir_result[0]
     right_sensor = ir_result[5]
 
-    if robot.following_wall == 1:
+    if robot.following_wall == Wall.LEFT:
         if left_sensor > 300:
             turn(robot, 4, 3)
             return True
@@ -160,7 +160,7 @@ def adjust_for_wall(robot, ir_result):
             turn(robot, 3, 4)
             return True
 
-    if robot.following_wall == 2:
+    if robot.following_wall == Wall.RIGHT:
         if right_sensor > 300:
             turn(robot, 3, 4)
             return True
@@ -169,14 +169,13 @@ def adjust_for_wall(robot, ir_result):
             return True
     return False
 
-#def is_close_to_something(ir_result):
-#    return any([reading > 120 for reading in ir_result[1:5]])
 
 def check_wall_parallel(robot, ir_result):
     if ir_result[0] > 150:
-        robot.following_wall = 1
+        robot.following_wall = Wall.LEFT
     elif ir_result[5] > 150:
-        robot.following_wall = 2
+        robot.following_wall = Wall.RIGHT
+
 
 def continue_turning(robot, ir_result):
     if robot.turning_to_evade and any([sensor > 120 for sensor in ir_result[1:5]]):
@@ -184,13 +183,13 @@ def continue_turning(robot, ir_result):
     robot.turning_to_evade = False
     return False
 
+
 def main():
     robot = Robot(open_connection())
     go(robot, 4)
 
     try:
         while True:
-            print robot.following_wall
             ir_result = read_ir(robot)
 
             if continue_turning(robot, ir_result) or avoid_obstacle(robot, ir_result):
@@ -206,7 +205,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-# Wall-following
-# If following a wall and get too close or far (500=good), curve short time
-# Short enough to block while turning? Else check time at start of turn, set exp
-# Don't want to get stuck following cylinder - wait before deciding on wall
