@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!usr/bin/env/python
+
 
 import time
 import serial
@@ -86,6 +87,7 @@ def _parse_sensor_string(sensor_string):
         return -1
     else:
         # we need to remove some superfluous characters in the returned message
+        print "sensor_string = " + sensor_string
         sensor_string = sensor_string[2:].rstrip(' \t\n\r')
 
         # and cast the comma separated sensor readings to integers
@@ -114,39 +116,73 @@ def read_counts(robot):
 
 
 def set_wheel_positions(robot, left_count, right_count):
+    set_counts(robot, 0, 0)
     counts = _parse_sensor_string(send_command(robot, "H"))
     return send_command(robot, "C," + str(counts[0] + left_count) + "," + str(counts[1] + right_count))
 
 
-def adjust_direction(robot, ir_result):
-    left_sensor = ir_result[0]
-    right_sensor = ir_result[5]
-
+def avoid_obstacle(robot, ir_result):
     left_front_sensors = ir_result[1:3]
     right_front_sensors = ir_result[3:5]
 
-    if left_sensor > 300 and all([left_sensor > other and other <= 250 for other in left_front_sensors[1:]]):
-        print "in left"
-        return False
+    if any([sensor > 120 for sensor in left_front_sensors + right_front_sensors]):
+        if robot.following_wall == 1: # Left wall
+            turn(robot, 2, -2)
+            robot.following_wall = 0
+            robot.turning_to_evade = True
+            return True
+        elif robot.following_wall == 2: # Right wall
+            robot.following_wall = 0
+            turn(robot, -2, 2)
+            robot.turning_to_evade = True
+            return True
+    if any([sensor > 120 for sensor in left_front_sensors]):
+        robot.following_wall = 0
+        turn(robot, 2, -2)
+        robot.turning_to_evade = True
+        return True
+    if any([sensor > 120 for sensor in right_front_sensors]):
+        robot.following_wall = 0
+#            set_wheel_positions(robot, -50, 50)
+        turn(robot, -2, 2)
+        robot.turning_to_evade = True
+        return True
 
-    if right_sensor > 300 and all([right_sensor > other and other <= 250 for other in right_front_sensors[0:2]]):
-        print "in right"
-        return False
+def adjust_for_wall(robot, ir_result):
+    left_sensor = ir_result[0]
+    right_sensor = ir_result[5]
 
-    for sensor in left_front_sensors[1:]:
-        if sensor > 200:
-            set_wheel_positions(robot, 50, -50)
+    if robot.following_wall == 1:
+        if left_sensor > 300:
+            turn(robot, 4, 3)
+            return True
+        if left_sensor < 200:
+            turn(robot, 3, 4)
             return True
 
-    for sensor in right_front_sensors[0:2]:
-        if sensor > 200:
-            set_wheel_positions(robot, -50, 50)
+    if robot.following_wall == 2:
+        if right_sensor > 300:
+            turn(robot, 3, 4)
             return True
+        if right_sensor < 200:
+            turn(robot, 4, 3)
+            return True
+    return False
 
+#def is_close_to_something(ir_result):
+#    return any([reading > 120 for reading in ir_result[1:5]])
 
-def is_close_to_something(ir_result):
-    return any([reading > 200 for reading in ir_result])
+def check_wall_parallel(robot, ir_result):
+    if ir_result[0] > 150:
+        robot.following_wall = 1
+    elif ir_result[5] > 150:
+        robot.following_wall = 2
 
+def continue_turning(robot, ir_result):
+    if robot.turning_to_evade and any([sensor > 120 for sensor in ir_result[1:5]]):
+        return True
+    robot.turning_to_evade = False
+    return False
 
 def main():
     robot = Robot(open_connection())
@@ -154,18 +190,16 @@ def main():
 
     try:
         while True:
+            print robot.following_wall
             ir_result = read_ir(robot)
 
-            if is_close_to_something(ir_result):
-                if not adjust_direction(robot, ir_result):
-                    go(robot, 4)
-
+            if continue_turning(robot, ir_result) or avoid_obstacle(robot, ir_result):
                 time.sleep(.2)
-
             else:
-                go(robot, 4)
-
-            time.sleep(.025)
+                check_wall_parallel(robot, ir_result)
+                if not adjust_for_wall(robot, ir_result):
+                    go(robot, 4)
+                time.sleep(.025)
 
     except KeyboardInterrupt:
         stop(robot)
