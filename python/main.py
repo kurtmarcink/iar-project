@@ -15,10 +15,13 @@ def main():
 
             if robot.continue_turning(ir_result) or robot.avoid_obstacle(ir_result):
                 time.sleep(.2)
+
             else:
-                robot.check_wall_parallel(ir_result)
+                robot.set_following_wall(ir_result)
+
                 if not robot.adjust_for_wall(ir_result):
                     robot.go(4)
+
                 time.sleep(.025)
 
     except KeyboardInterrupt:

@@ -8,12 +8,34 @@ class Robot:
         self.conn = self._open_connection()
         self.following_wall = Wall.NONE
         self.ir_result = None
-        self.turning_to_evade = False
+        self.__turning_to_evade = False
+
+    CURVE_LEFT_VAL = (3, 4)
+    CURVE_RIGHT_VAL = CURVE_LEFT_VAL[::-1]
+
+    HARD_LEFT_VAL = (-2, 2)
+    HARD_RIGHT_VAL = HARD_LEFT_VAL[::-1]
+
+    OBSTACLE_READING_MIN = 120
+    WALL_FOLLOWING_MIN = 150
+
+    @property
+    def turning_to_evade(self):
+        return self.__turning_to_evade
+
+    @turning_to_evade.setter
+    def turning_to_evade(self, val):
+        if val is True:
+            self.following_wall = Wall.NONE
+
+        self.__turning_to_evade = val
 
     def _open_connection(self, port="/dev/ttyS0", baudrate=9600, stopbits=2, timeout=1, **kwargs):
         s = serial.Serial(port=port, baudrate=baudrate, stopbits=stopbits, timeout=timeout, **kwargs)
+
         if not s.isOpen():
             s.open()
+
         return s
 
     def _close_connection(self):
@@ -25,11 +47,14 @@ class Robot:
         # Khepera. If there is a backlog, we should read out of the serial buffer
         # so that future communications aren't messed up.
         if self.conn.inWaiting() > 0:
+
             if verbose:
                 print "WARNING! Messages were waiting to be read!"
                 print "This may be indicative of a problem elsewhere in your code."
+
             while self.conn.inWaiting() > 0:
                 message = self.conn.readline()[:-1]
+
                 if verbose:
                     print message
 
@@ -47,15 +72,19 @@ class Robot:
         if verbose:
             print "SENT     : " + command[:-1]
             print "RECEIVED : " + answer[:-1]
+
             if len(answer) < 1:
                 print "WARNING! No response received!"
+
             elif answer[0] != command[0].lower():
                 print "WARNING! Response does not match issued command!"
+
         return answer
 
     def _parse_sensor_string(self, sensor_string):
         if len(sensor_string) < 1:
             return -1
+
         else:
             # we need to remove some superfluous characters in the returned message
             print "sensor_string = " + sensor_string
@@ -107,72 +136,75 @@ class Robot:
         left_front_sensors = ir_result[1:3]
         right_front_sensors = ir_result[3:5]
 
-        if any([sensor > 120 for sensor in left_front_sensors + right_front_sensors]):
+        def stop_following_and_evade(turn):
+            self.turning_to_evade = True
+            self.turn(*turn)
+
+        left_front_sensors_read_obstacle = any([sensor > self.OBSTACLE_READING_MIN for sensor in left_front_sensors])
+        right_front_sensors_read_obstacle = any([sensor > self.OBSTACLE_READING_MIN for sensor in right_front_sensors])
+
+        if left_front_sensors_read_obstacle or right_front_sensors_read_obstacle:
             if self.following_wall == Wall.LEFT:
-                self.turn(2, -2)
-                self.following_wall = Wall.NONE
-                self.turning_to_evade = True
+                stop_following_and_evade(self.HARD_RIGHT_VAL)
 
                 return True
 
             elif self.following_wall == Wall.RIGHT:
-                self.following_wall = Wall.NONE
-                self.turn(-2, 2)
-                self.turning_to_evade = True
+                stop_following_and_evade(self.HARD_LEFT_VAL)
 
                 return True
 
-        if any([sensor > 120 for sensor in left_front_sensors]):
-            self.following_wall = Wall.NONE
-            self.turn(2, -2)
-            self.turning_to_evade = True
-
-            return True
-
-        if any([sensor > 120 for sensor in right_front_sensors]):
-            self.following_wall = Wall.NONE
-            self.turn(-2, 2)
-            self.turning_to_evade = True
-
-            return True
-
-    def adjust_for_wall(self, ir_result):
-        left_sensor = ir_result[0]
-        right_sensor = ir_result[5]
-
-        if self.following_wall == Wall.LEFT:
-            if left_sensor > 300:
-                self.turn(4, 3)
+            if left_front_sensors_read_obstacle:
+                stop_following_and_evade(self.HARD_RIGHT_VAL)
 
                 return True
 
-            if left_sensor < 200:
-                self.turn(3, 4)
-
-                return True
-
-        if self.following_wall == Wall.RIGHT:
-            if right_sensor > 300:
-                self.turn(3, 4)
-
-                return True
-
-            if right_sensor < 200:
-                self.turn(4, 3)
+            if right_front_sensors_read_obstacle:
+                stop_following_and_evade(self.HARD_LEFT_VAL)
 
                 return True
 
         return False
 
-    def check_wall_parallel(self, ir_result):
-        if ir_result[0] > 150:
+    def adjust_for_wall(self, ir_result):
+        left_sensor_reading = ir_result[0]
+        right_sensor_reading = ir_result[5]
+        min_threshold = 200
+        max_threshold = 300
+
+        if self.following_wall == Wall.LEFT:
+            if left_sensor_reading > max_threshold:
+                self.turn(*self.CURVE_RIGHT_VAL)
+
+                return True
+
+            if left_sensor_reading < min_threshold:
+                self.turn(*self.CURVE_LEFT_VAL)
+
+                return True
+
+        if self.following_wall == Wall.RIGHT:
+            if right_sensor_reading > max_threshold:
+                self.turn(*self.CURVE_LEFT_VAL)
+
+                return True
+
+            if right_sensor_reading < min_threshold:
+                self.turn(*self.CURVE_RIGHT_VAL)
+
+                return True
+
+        return False
+
+    def set_following_wall(self, ir_result):
+        if ir_result[0] > self.WALL_FOLLOWING_MIN:
             self.following_wall = Wall.LEFT
 
-        elif ir_result[5] > 150:
+        elif ir_result[5] > self.WALL_FOLLOWING_MIN:
             self.following_wall = Wall.RIGHT
 
     def continue_turning(self, ir_result):
-        if self.turning_to_evade and any([sensor > 120 for sensor in ir_result[1:5]]):
+        if self.turning_to_evade and any([sensor > self.OBSTACLE_READING_MIN for sensor in ir_result[1:5]]):
             return True
 
         self.turning_to_evade = False
