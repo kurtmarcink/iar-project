@@ -64,6 +64,7 @@ def send_command(s, command, verbose=True):
 
 
 def set_speeds(s, left, right):
+    # MAX = 127
     return send_command(s, "D," + str(int(left)) + "," + str(int(right)))
 
 
@@ -141,3 +142,8 @@ if __name__ == "__main__":
                 go(serial, 2)
     except KeyboardInterrupt:
         stop(serial)
+
+# Wall-following
+# If following a wall and get too close or far (500=good), curve short time
+# Short enough to block while turning? Else check time at start of turn, set exp
+# Don't want to get stuck following cylinder - wait before deciding on wall
