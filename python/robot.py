@@ -7,13 +7,14 @@ class Robot:
     def __init__(self):
         self.conn = self._open_connection()
         self.following_wall = Wall.NONE
-        self.ir_result = None
         self.__turning_to_evade = False
+        self.wheel_count_list = [[]]
+        self.current_speed = (0, 0)
 
-    CURVE_LEFT_VAL = (3, 4)
+    CURVE_LEFT_VAL = (10, 13)
     CURVE_RIGHT_VAL = CURVE_LEFT_VAL[::-1]
 
-    HARD_LEFT_VAL = (-2, 2)
+    HARD_LEFT_VAL = (-8, 8)
     HARD_RIGHT_VAL = HARD_LEFT_VAL[::-1]
 
     OBSTACLE_READING_MIN = 120
@@ -91,12 +92,22 @@ class Robot:
             sensor_string = sensor_string[2:].rstrip(' \t\n\r')
 
             # and cast the comma separated sensor readings to integers
-            sensor_vals = [int(ss) for ss in sensor_string.split(",")]
+            sensor_vals = [int(ss) for ss in sensor_string.split(",")[:6]]
 
             return sensor_vals
 
-    def _set_speeds(self, left, right):
+    def _set_speeds(self, left, right, count_wheels=True):
         # MAX = 127
+        if self.current_speed == (left, right):
+            return
+
+        if count_wheels:
+            self.wheel_count_list[-1] += self.read_counts()
+            self.wheel_count_list.append([left, right])
+
+        self.set_counts(0, 0)
+
+        self.current_speed = (left, right)
         return self._send_command("D," + str(int(left)) + "," + str(int(right)))
 
     def read_ambient(self):
@@ -107,7 +118,11 @@ class Robot:
     def read_ir(self):
         ir_string = self._send_command("N")
 
-        return self._parse_sensor_string(ir_string)
+        try:
+            return self._parse_sensor_string(ir_string)
+
+        except ValueError:
+            return self.read_ir()
 
     def go(self, speed):
         return self._set_speeds(speed, speed)
