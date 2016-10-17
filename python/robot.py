@@ -11,13 +11,15 @@ class Robot:
         self.move_list = [{}]
         self.current_speed = (0, 0)
 
-    CURVE_LEFT_VAL = (10, 13)
+    CURVE_LEFT_VAL = (11, 13)
     CURVE_RIGHT_VAL = CURVE_LEFT_VAL[::-1]
 
-    HARD_LEFT_VAL = (-8, 8)
+    HARD_LEFT_VAL = (-4, 4)
     HARD_RIGHT_VAL = HARD_LEFT_VAL[::-1]
 
-    OBSTACLE_READING_MIN = 120
+    OBSTACLE_READING_MIN_LEFT = 110
+    OBSTACLE_READING_MIN_RIGHT = 130
+
     WALL_FOLLOWING_MIN = 150
 
     @property
@@ -156,8 +158,8 @@ class Robot:
             self.turning_to_evade = True
             self.turn(*turn)
 
-        left_front_sensors_read_obstacle = any([sensor > self.OBSTACLE_READING_MIN for sensor in left_front_sensors])
-        right_front_sensors_read_obstacle = any([sensor > self.OBSTACLE_READING_MIN for sensor in right_front_sensors])
+        left_front_sensors_read_obstacle = any([sensor > self.OBSTACLE_READING_MIN_LEFT for sensor in left_front_sensors])
+        right_front_sensors_read_obstacle = any([sensor > self.OBSTACLE_READING_MIN_RIGHT for sensor in right_front_sensors])
 
         if left_front_sensors_read_obstacle or right_front_sensors_read_obstacle:
             if self.following_wall == Wall.LEFT:
@@ -220,7 +222,7 @@ class Robot:
             self.following_wall = Wall.RIGHT
 
     def continue_turning(self, ir_result):
-        if self.turning_to_evade and any([sensor > self.OBSTACLE_READING_MIN for sensor in ir_result[1:5]]):
+        if self.turning_to_evade and (any([sensor > self.OBSTACLE_READING_MIN_LEFT for sensor in ir_result[2:3]]) or any([sensor > self.OBSTACLE_READING_MIN_RIGHT for sensor in ir_result[3:4]])):
             return True
 
         self.turning_to_evade = False
