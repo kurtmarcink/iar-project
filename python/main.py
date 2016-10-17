@@ -17,7 +17,7 @@ def main():
     time.sleep(.02)
 
     try:
-        while time.time() < start_time + 5:
+        while time.time() < start_time + 10:
             ir_result = robot.read_ir()
 
             if robot.continue_turning(ir_result) or robot.avoid_obstacle(ir_result):
@@ -33,8 +33,8 @@ def main():
 
         robot.stop()
         time.sleep(.5)
-        robot.set_wheel_positions(1036, -1036)
-        time.sleep(2.5)
+#        robot.set_wheel_positions(1036, -1036)
+#        time.sleep(2.5)
 
         forward_move_list = list(robot.move_list)
         """
@@ -59,20 +59,20 @@ def main():
         robot.stop()
 
         backtracking_move_list = list(robot.move_list[len(forward_move_list):])
-"""
         t = turtle.Turtle()
         t.screen.setup(width=.9, height=.9)
         t.speed(0)
         t.dot(10, 'red')
 
-        pp = pprint.PrettyPrinter(indent=4)
+"""
+#        pp = pprint.PrettyPrinter(indent=4)
 
-        print "FORWARD"
-        pp.pprint(forward_move_list)
-        trace_robot(forward_move_list[1:-1], t, 'red')
+#        print "FORWARD"
+#        pp.pprint(forward_move_list)
+#        trace_robot(forward_move_list[1:-1], t, 'red')
 
-        t.left(180)
-        t.dot(10, 'purple')
+#        t.left(180)
+#        t.dot(10, 'purple')
 
 #        print "BACK"
 #        pp.pprint(list(reversed(backtracking_move_list)))
@@ -80,7 +80,7 @@ def main():
 #        trace_robot(backtracking_move_list[:-1], t, 'blue')
 
         robot.go_home()
-        t.dot(10, 'blue')
+#        t.dot(10, 'blue')
 
         try:
             while True:
@@ -96,6 +96,7 @@ def main():
         logging.error(traceback.format_exc())
 
     finally:
+        print "self.pose: " + str(robot.pose)
         robot.stop()
 
 
