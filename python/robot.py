@@ -8,7 +8,7 @@ class Robot:
         self.conn = self._open_connection()
         self.following_wall = Wall.NONE
         self.__turning_to_evade = False
-        self.wheel_count_list = [[]]
+        self.move_list = [{}]
         self.current_speed = (0, 0)
 
     CURVE_LEFT_VAL = (10, 13)
@@ -43,7 +43,7 @@ class Robot:
         if self.conn.isOpen():
             self.conn.close()
 
-    def _send_command(self, command, verbose=True):
+    def _send_command(self, command, verbose=False):
         # we should check if we have built up a backlog of serial messages from the
         # Khepera. If there is a backlog, we should read out of the serial buffer
         # so that future communications aren't messed up.
@@ -88,7 +88,6 @@ class Robot:
 
         else:
             # we need to remove some superfluous characters in the returned message
-            print "sensor_string = " + sensor_string
             sensor_string = sensor_string[2:].rstrip(' \t\n\r')
 
             # and cast the comma separated sensor readings to integers
@@ -96,14 +95,14 @@ class Robot:
 
             return sensor_vals
 
-    def _set_speeds(self, left, right, count_wheels=True):
-        # MAX = 127
+    def _set_speeds(self, left, right):
         if self.current_speed == (left, right):
             return
 
-        if count_wheels:
-            self.wheel_count_list[-1] += self.read_counts()
-            self.wheel_count_list.append([left, right])
+        counts = self.read_wheel_counts()
+        self.move_list[-1]['left_wheel_count'] = counts['left']
+        self.move_list[-1]['right_wheel_count'] = counts['right']
+        self.move_list.append(dict(left_speed=left, right_speed=right))
 
         self.set_counts(0, 0)
 
@@ -133,10 +132,12 @@ class Robot:
     def turn(self, left, right):
         return self._set_speeds(left, right)
 
-    def read_counts(self):
+    def read_wheel_counts(self):
         count_string = self._send_command("H")
 
-        return self._parse_sensor_string(count_string)
+        count_list = self._parse_sensor_string(count_string)
+
+        return dict(left=count_list[0], right=count_list[1])
 
     def set_counts(self, left_count, right_count):
         return self._send_command("G," + str(left_count) + "," + str(right_count))

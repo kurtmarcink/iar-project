@@ -1,17 +1,22 @@
-#!usr/bin/env/python
+#!/usr/bin/env python
 
 from robot import Robot
 
+import numpy as np
 import time
+import turtle
+import traceback
+import logging
 
 
 def main():
     start_time = time.time()
     robot = Robot()
     robot.go(12)
+    # time.sleep(.02)
 
     try:
-        while time.time() - start_time <= 20:
+        while time.time() < start_time + 2:
             ir_result = robot.read_ir()
 
             if robot.continue_turning(ir_result) or robot.avoid_obstacle(ir_result):
@@ -30,24 +35,98 @@ def main():
         robot.set_wheel_positions(1045, -1045)
         time.sleep(2)
 
-        print len(robot.wheel_count_list)
-        for i in reversed(robot.wheel_count_list[1:-1]):
-            robot._set_speeds(i[1], i[0], count_wheels=False)
+        forward_move_list = robot.move_list
+        # backtracking_instructions = reversed(robot.move_list[1:-1])
+        # for move in backtracking_instructions:
+        #     robot._set_speeds(move['right_speed'], move['left_speed'])
+        #
+        #     while True:
+        #         wheel_counts = robot.read_wheel_counts()
+        #
+        #         # # robot._set_speeds(0, 0, count_wheels=False)
+        #         # # robot.set_counts(0, 0)
+        #         # time.sleep(.02)
+        #
+        #         time.sleep(.02)
+        #
+        #         if (abs(wheel_counts['left']) >= abs(move['right_wheel_count']) and
+        #                     abs(wheel_counts['right']) >= abs(move['left_wheel_count'])):
+        #             break
+        #
+        #
+        # robot.stop()
 
+        # backtracking_move_list = robot.move_list[len(forward_move_list):]
+
+        t = turtle.Turtle()
+        # t.screen.screensize(5000, 5000)
+        t.speed(0)
+        t.dot(10, 'red')
+        print "forward" + str(forward_move_list)
+        trace_robot(forward_move_list[1:-1], t, 'red')
+
+        t.left(180)
+        t.dot(10, 'purple')
+
+        # trace_robot(backtracking_move_list, t, 'blue')
+
+        # t.dot(10, 'blue')
+
+        try:
             while True:
-                wheel_count = robot.read_counts()
-
-                if abs(wheel_count[0]) >= abs(i[3]) and abs(wheel_count[1]) >= abs(i[2]):
-                    robot._set_speeds(0, 0, count_wheels=False)
-                    break
-
                 time.sleep(.02)
 
+        except KeyboardInterrupt:
+            pass
+
     except KeyboardInterrupt:
+        print robot.move_list
         robot.stop()
 
-    except:
+    except Exception as e:
+        print robot.move_list
         robot.stop()
+        logging.error(traceback.format_exc())
 
-if __name__ == "__main__":
+
+def trace_robot(move_list, t, dot_color):
+    for move in move_list:
+        # robot moves straight
+        if move['left_speed'] == move['right_speed']:
+            distance = np.mean([move['left_wheel_count'], move['right_wheel_count']])
+
+            t.forward(distance / 50)
+
+        # robot turns in place
+        elif abs(move['left_speed']) == abs(move['right_speed']):
+            print 'in here!!'
+            # wheel counts aren't perfect, so take the mean to get the turn
+            distance = np.mean([abs(move['left_wheel_count']), abs(move['right_wheel_count'])])
+
+            # 1045 wheel turns is 180 degrees, so use this ratio to determine the angle
+            # 180 / 1045 = angle / distance
+            angle = (180 * distance) / 1045
+
+            # robot turns right
+            if move['left_speed'] > move['right_speed']:
+                t.right(angle)
+
+            # robot turns left
+            else:
+                t.left(angle)
+
+        # robot turns and moves at the same time
+        else:
+            # robot turns right
+            if move['left_speed'] > move['right_speed']:
+                t.circle(-500, .1 * move['right_wheel_count'])
+
+            # robot turns left
+            else:
+                t.circle(500, .1 * move['left_wheel_count'])
+
+        t.dot(5, dot_color)
+
+
+if __name__ == '__main__':
     main()
