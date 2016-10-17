@@ -139,14 +139,16 @@ class Robot:
 
         # robot turns and moves at the same time
         else:
-            todo
-            # robot turns right
             if move['left_speed'] > move['right_speed']:
-                t.circle(-440, .01 * move['right_wheel_count'])
-
-            # robot turns left
+                r = 50.0 / (move['left_wheel_count'] / move['right_wheel_count'] - 1)
+                theta = move['right_wheel_count'] * .08 / (2 * np.pi *r) * 360
+                self.pose[1] -= r * np.sin(theta * np.pi / 180) * np.sin(self.pose[2] * np.pi / 180)
             else:
-                t.circle(440, .01 * move['left_wheel_count'])
+                r = 50.0 / (move['right_wheel_count'] / move['left_wheel_count'] - 1)
+                theta = move['left_wheel_count'] * .08 / (2 * np.pi *r) * 360
+                self.pose[1] += r * np.sin(theta * np.pi / 180) * np.sin(self.pose[2] * np.pi / 180)
+            self.pose[0] += r * np.cos(theta * np.pi / 180) * np.cos(self.pose[2] * np.pi / 180)
+            self.pose[2] += theta
 
     def set_angle(self, angle):
         delta_angle = angle - self.pose[2]
@@ -158,7 +160,7 @@ class Robot:
         tol = 10
         while abs(self.pose[0]) > tol or abs(self.pose[1]) > tol:
             ir_result = self.read_ir
-            if self.continue_turning(ir_result) or self.avoid_obstacle(ir_result):
+            if self.continue_turning(ir_result, homing=True) or self.avoid_obstacle(ir_result):
                 time.sleep(.02)
             else:
                 self.set_angle(np.arctan(float(self.pose[0]) / self.pose[1]))
@@ -275,9 +277,12 @@ class Robot:
         elif ir_result[5] > self.WALL_FOLLOWING_MIN:
             self.following_wall = Wall.RIGHT
 
-    def continue_turning(self, ir_result):
+    def continue_turning(self, ir_result, homing=False):
         if self.turning_to_evade and (any([sensor > self.OBSTACLE_READING_MIN_LEFT for sensor in ir_result[2:3]]) or any([sensor > self.OBSTACLE_READING_MIN_RIGHT for sensor in ir_result[3:4]])):
             return True
 
         self.turning_to_evade = False
+        if homing:
+            self.go(10)
+            time.sleep(.5)
         return False

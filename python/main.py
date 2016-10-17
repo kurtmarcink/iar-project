@@ -17,7 +17,7 @@ def main():
     time.sleep(.02)
 
     try:
-        while time.time() < start_time + 30:
+        while time.time() < start_time + 5:
             ir_result = robot.read_ir()
 
             if robot.continue_turning(ir_result) or robot.avoid_obstacle(ir_result):
@@ -37,6 +37,7 @@ def main():
         time.sleep(2.5)
 
         forward_move_list = list(robot.move_list)
+        """
         backtracking_instructions = reversed(robot.move_list[1:-1])
         for move in backtracking_instructions:
             robot._set_speeds(move['right_speed'], move['left_speed'])
@@ -58,7 +59,7 @@ def main():
         robot.stop()
 
         backtracking_move_list = list(robot.move_list[len(forward_move_list):])
-
+"""
         t = turtle.Turtle()
         t.screen.setup(width=.9, height=.9)
         t.speed(0)
@@ -73,11 +74,12 @@ def main():
         t.left(180)
         t.dot(10, 'purple')
 
-        print "BACK"
-        pp.pprint(list(reversed(backtracking_move_list)))
+#        print "BACK"
+#        pp.pprint(list(reversed(backtracking_move_list)))
 
-        trace_robot(backtracking_move_list[:-1], t, 'blue')
+#        trace_robot(backtracking_move_list[:-1], t, 'blue')
 
+        robot.go_home()
         t.dot(10, 'blue')
 
         try:
