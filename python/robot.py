@@ -1,6 +1,8 @@
 from wall import Wall
 
 import serial
+import numpy as np
+import time
 
 
 class Robot:
@@ -10,6 +12,8 @@ class Robot:
         self.__turning_to_evade = False
         self.move_list = [{}]
         self.current_speed = (0, 0)
+	# [x, y, theta (degrees)]
+	self.pose = [0, 0, 0]
 
     CURVE_LEFT_VAL = (11, 13)
     CURVE_RIGHT_VAL = CURVE_LEFT_VAL[::-1]
@@ -104,12 +108,62 @@ class Robot:
         counts = self.read_wheel_counts()
         self.move_list[-1]['left_wheel_count'] = counts['left']
         self.move_list[-1]['right_wheel_count'] = counts['right']
+	    self.update_pose()
         self.move_list.append(dict(left_speed=left, right_speed=right))
 
         self.set_counts(0, 0)
 
         self.current_speed = (left, right)
         return self._send_command("D," + str(int(left)) + "," + str(int(right)))
+
+    def update_pose(self):
+        move = self.move_list[-1]
+        # robot moves straight
+        if move['left_speed'] == move['right_speed']:
+            distance = np.mean([move['left_wheel_count'], move['right_wheel_count']])
+            self.pose[0] += distance * np.cos(self.pose[2])
+            self.pose[1] += distance * np.sin(self.pose[2])
+
+        # robot turns in place
+        elif abs(move['left_speed']) == abs(move['right_speed']):
+            # wheel counts aren't perfect, so take the mean to get the turn
+            distance = np.mean([abs(move['left_wheel_count']), abs(move['right_wheel_count'])])
+
+            # 1045 wheel turns is 180 degrees, so use this ratio to determine the angle
+            # 180 / 1045 = angle / distance
+            angle = (180 * distance) / 920
+            # robot turns right
+            if move['left_speed'] > move['right_speed']:
+                angle *= -1
+            self.pose[2] = (self.pose[2] + angle) % 360
+
+        # robot turns and moves at the same time
+        else:
+            todo
+            # robot turns right
+            if move['left_speed'] > move['right_speed']:
+                t.circle(-440, .01 * move['right_wheel_count'])
+
+            # robot turns left
+            else:
+                t.circle(440, .01 * move['left_wheel_count'])
+
+    def set_angle(self, angle):
+        delta_angle = angle - self.pose[2]
+        counts = delta_angle * 920 / 180
+        self.set_wheel_positions(-1 * counts, counts)
+        self.pose[2] = angle
+
+    def go_home(self):
+        tol = 10
+        while abs(self.pose[0]) > tol or abs(self.pose[1]) > tol:
+            ir_result = self.read_ir
+            if self.continue_turning(ir_result) or self.avoid_obstacle(ir_result):
+                time.sleep(.02)
+            else:
+                self.set_angle(np.arctan(float(self.pose[0]) / self.pose[1]))
+                self.go(10)
+                time.sleep(.02)
 
     def read_ambient(self):
         ambient_string = self._send_command("O")
