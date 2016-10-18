@@ -50,8 +50,19 @@ def main():
 
                 # time.sleep(.02)
 
-                if (abs(wheel_counts['left']) >= abs(move['right_wheel_count']) and
-                            abs(wheel_counts['right']) >= abs(move['left_wheel_count'])):
+                if abs(move['right_speed']) != abs(move['left_speed']):
+                    if abs(wheel_counts['left']) > 2000 or abs(wheel_counts['right']) > 2000:
+
+                        if abs(wheel_counts['left']) / abs(move['right_wheel_count'] > .85) or \
+                            abs(wheel_counts['right']) / abs(move['left_wheel_count'] > .85):
+                            break
+                    else:
+                        if (abs(wheel_counts['left']) >= (abs(move['right_wheel_count']) - 100) or
+                                    abs(wheel_counts['right']) >= (abs(move['left_wheel_count']) - 100)):
+                            break
+
+                if (abs(wheel_counts['left']) >= (abs(move['right_wheel_count'])) or
+                            abs(wheel_counts['right']) >= (abs(move['left_wheel_count']))):
                     break
 
 
@@ -62,7 +73,7 @@ def main():
         t = turtle.Turtle()
         t.screen.setup(width=.9, height=.9)
         t.speed(0)
-        t.dot(10, 'red')
+        t.dot(20, 'red')
 
         pp = pprint.PrettyPrinter(indent=4)
 
@@ -71,14 +82,14 @@ def main():
         trace_robot(forward_move_list[1:-1], t, 'red')
 
         t.left(180)
-        t.dot(10, 'purple')
+        t.dot(20, 'purple')
 
         print "BACK"
         pp.pprint(list(reversed(backtracking_move_list)))
 
         trace_robot(backtracking_move_list[:-1], t, 'blue')
 
-        t.dot(10, 'blue')
+        t.dot(20, 'blue')
 
         try:
             while True:
@@ -133,7 +144,7 @@ def trace_robot(move_list, t, dot_color):
             else:
                 t.circle(440, .01 * move['left_wheel_count'])
 
-        t.dot(5, dot_color)
+        t.dot(10, dot_color)
 
 
 if __name__ == '__main__':
