@@ -13,6 +13,7 @@ import pprint
 def main():
     start_time = time.time()
     robot = Robot()
+#    robot.set_wheel_positions(1030,-1030)
     robot.go(10)
     time.sleep(.02)
 
@@ -51,15 +52,15 @@ def main():
                 # time.sleep(.02)
 
                 if abs(move['right_speed']) != abs(move['left_speed']):
-                    if abs(wheel_counts['left']) > 2000 or abs(wheel_counts['right']) > 2000:
 
-                        if abs(wheel_counts['left']) / abs(move['right_wheel_count'] > .85) or \
-                            abs(wheel_counts['right']) / abs(move['left_wheel_count'] > .85):
+                    if abs(wheel_counts['left']) > 3000 or abs(wheel_counts['right']) > 3000:
+
+                        if abs(wheel_counts['left']) / abs(move['right_wheel_count'] > .70) or \
+                            abs(wheel_counts['right']) / abs(move['left_wheel_count'] > .70):
                             break
-                    else:
-                        if (abs(wheel_counts['left']) >= (abs(move['right_wheel_count']) - 100) or
-                                    abs(wheel_counts['right']) >= (abs(move['left_wheel_count']) - 100)):
-                            break
+                    elif (abs(wheel_counts['left']) >= (abs(move['right_wheel_count']) - 150) or
+                                abs(wheel_counts['right']) >= (abs(move['left_wheel_count']) - 150)):
+                        break
 
                 if (abs(wheel_counts['left']) >= (abs(move['right_wheel_count'])) or
                             abs(wheel_counts['right']) >= (abs(move['left_wheel_count']))):
@@ -91,6 +92,11 @@ def main():
 
         t.dot(20, 'blue')
 
+        print "turtle pos: " + str(t.pos())
+        print "turtle angle to origin: " + str(t.towards(0,0))
+
+        correct_posn(robot, t.xcor(), t.ycor())
+
         try:
             while True:
                 time.sleep(.02)
@@ -107,6 +113,25 @@ def main():
     finally:
         robot.stop()
 
+def correct_posn(robot, x, y):
+    conv = 30.
+    tol = 40
+    if abs(y) > tol:
+        if y < 0:
+            robot.set_angle(90)
+        else:
+            robot.set_angle(270)
+        robot.go(4)
+        time.sleep(abs(y) / conv)
+        robot.stop()
+    if abs(x) > tol:
+        if x < 0:
+            robot.set_angle(0)
+        else:
+            robot.set_angle(180)
+        robot.go(4)
+        time.sleep(abs(x) / conv)
+        robot.stop()
 
 
 def trace_robot(move_list, t, dot_color):

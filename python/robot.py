@@ -1,6 +1,8 @@
 from wall import Wall
 
 import serial
+import numpy as np
+import time
 
 
 class Robot:
@@ -8,8 +10,10 @@ class Robot:
         self.conn = self._open_connection()
         self.following_wall = Wall.NONE
         self.__turning_to_evade = False
-        self.move_list = [{}]
+        self.move_list = [dict(left_speed=0, right_speed=0)]
         self.current_speed = (0, 0)
+	# [x, y, theta (degrees)]
+	self.pose = [0, 0, 0]
 
     CURVE_LEFT_VAL = (11, 13)
     CURVE_RIGHT_VAL = CURVE_LEFT_VAL[::-1]
@@ -17,8 +21,8 @@ class Robot:
     HARD_LEFT_VAL = (-4, 4)
     HARD_RIGHT_VAL = HARD_LEFT_VAL[::-1]
 
-    OBSTACLE_READING_MIN_LEFT = 110
-    OBSTACLE_READING_MIN_RIGHT = 130
+    OBSTACLE_READING_MIN_LEFT = 150
+    OBSTACLE_READING_MIN_RIGHT = 150
 
     WALL_FOLLOWING_MIN = 150
 
@@ -97,19 +101,113 @@ class Robot:
 
             return sensor_vals
 
-    def _set_speeds(self, left, right):
-        if self.current_speed == (left, right):
+    def _set_speeds(self, left, right, homing=False):
+        if not homing and self.current_speed == (left, right):
             return
 
         counts = self.read_wheel_counts()
         self.move_list[-1]['left_wheel_count'] = counts['left']
         self.move_list[-1]['right_wheel_count'] = counts['right']
+        self.update_pose()
         self.move_list.append(dict(left_speed=left, right_speed=right))
 
         self.set_counts(0, 0)
 
         self.current_speed = (left, right)
         return self._send_command("D," + str(int(left)) + "," + str(int(right)))
+
+    def update_pose(self):
+#        print self.move_list
+        move = self.move_list[-1]
+        # robot moves straight
+        if move['left_speed'] == move['right_speed']:
+            distance = .08 * np.mean([move['left_wheel_count'], move['right_wheel_count']])
+            self.pose[0] += distance * np.cos(self.pose[2] * np.pi / 180)
+            self.pose[1] += distance * np.sin(self.pose[2] * np.pi / 180)
+
+        # robot turns in place
+        elif abs(move['left_speed']) == abs(move['right_speed']):
+            print "rotating"
+            # wheel counts aren't perfect, so take the mean to get the turn
+            distance = np.mean([abs(move['left_wheel_count']), abs(move['right_wheel_count'])])
+
+            # 1045 wheel turns is 180 degrees, so use this ratio to determine the angle
+            # 180 / 1045 = angle / distance
+            angle = (180 * distance) / 1030
+            # robot turns right
+            if move['left_speed'] > move['right_speed']:
+                angle *= -1
+            self.pose[2] = (self.pose[2] + angle) % 360
+
+        # robot turns and moves at the same time
+        else:
+            print "turning"
+            if move['left_speed'] > move['right_speed']:
+               # r = 50.0 / (move['left_wheel_count'] / move['right_wheel_count'] - 1)
+                r = 410.0 / 2
+                theta = move['right_wheel_count'] * .08 / (2 * np.pi *r) * 360
+#                self.pose[1] -= r * np.sin(theta * np.pi / 180) * np.sin(self.pose[2] * np.pi / 180)
+#                self.pose[1] -= r * (1 - np.cos(theta * np.pi / 180)) * np.cos(self.pose[2] * np.pi / 180)
+                dely = 1 - np.cos(theta * np.pi / 180)
+                th = np.arcsin(dely)
+                thtot = th + theta * np.pi / 180
+                self.pose[1] += r * np.sin(thtot)
+
+            else:
+               # r = 50.0 / (move['right_wheel_count'] / move['left_wheel_count'] - 1)
+                r = 410.0 / 2
+                theta = move['left_wheel_count'] * .08 / (2 * np.pi *r) * 360
+#                self.pose[1] += r * np.sin(theta * np.pi / 180) * np.sin(self.pose[2] * np.pi / 180)
+#                self.pose[1] += r * (1 - np.cos(theta * np.pi / 180)) * np.cos(self.pose[2] * np.pi / 180)
+                dely = 1 - np.cos(theta * np.pi / 180)
+                th = np.arcsin(dely)
+                thtot = th + theta * np.pi / 180
+                self.pose[1] -= r * np.sin(thtot)
+
+
+            self.pose[0] += r * np.sin(theta * np.pi / 180) * np.cos(self.pose[2] * np.pi / 180)
+            self.pose[2] += theta
+            print "r = " + str(r)
+            print "theta = " + str(theta)
+
+    def safe_arctan(self, x, y):
+        if x == 0:
+            if y > 0:
+                return 3/2 * np.pi
+            else:
+                return np.pi / 2
+        ang = np.arctan(y/x)
+        if ang < 0:
+            ang += 2 * np.pi
+        if y < 0:
+            ang += np.pi
+        return ang
+
+    def set_angle(self, angle):
+        self.stop()
+        time.sleep(.5)
+        delta_angle = (angle - self.pose[2]) % 360
+        counts = delta_angle * 1030 / 180
+        self.set_wheel_positions(int(-1 * counts), int(counts))
+        self.pose[2] = angle % 360
+        time.sleep(2)
+
+    def go_home(self):
+        tol = 50
+        while abs(self.pose[0]) > tol or abs(self.pose[1]) > tol:
+            ir_result = self.read_ir()
+            if self.continue_turning(ir_result, homing=True) or self.avoid_obstacle(ir_result):
+                print "turning"
+                time.sleep(.02)
+            else:
+                angle = 180 + self.safe_arctan(float(self.pose[0]), float(self.pose[1])) * 180 / np.pi
+                print "POSE: " + str(self.pose)
+                print "ANGLE: " + str(angle)
+                if abs(self.pose[2] - angle) > 10:
+                    self.set_angle(angle)
+                self.go(6, homing=True)
+                time.sleep(.02)
+        self.stop()
 
     def read_ambient(self):
         ambient_string = self._send_command("O")
@@ -120,13 +218,14 @@ class Robot:
         ir_string = self._send_command("N")
 
         try:
+            print ir_string
             return self._parse_sensor_string(ir_string)
 
         except ValueError:
             return self.read_ir()
 
-    def go(self, speed):
-        return self._set_speeds(speed, speed)
+    def go(self, speed, homing=False):
+        return self._set_speeds(speed, speed, homing)
 
     def stop(self):
         return self.go(0)
@@ -139,16 +238,18 @@ class Robot:
 
         count_list = self._parse_sensor_string(count_string)
 
-        return dict(left=count_list[0], right=count_list[1])
+        return dict(left=float(count_list[0]), right=float(count_list[1]))
 
     def set_counts(self, left_count, right_count):
         return self._send_command("G," + str(left_count) + "," + str(right_count))
 
     def set_wheel_positions(self, left_count, right_count):
         self.set_counts(0, 0)
+        print "left_count = " + str(left_count)
+        print "right_count = " + str(right_count)
         counts = self._parse_sensor_string(self._send_command("H"))
 
-        return self._send_command("C," + str(counts[0] + left_count) + "," + str(counts[1] + right_count))
+        return self._send_command("C," + str(int(counts[0] + left_count)) + "," + str(int(counts[1] + right_count)))
 
     def avoid_obstacle(self, ir_result):
         left_front_sensors = ir_result[1:3]
@@ -221,9 +322,12 @@ class Robot:
         elif ir_result[5] > self.WALL_FOLLOWING_MIN:
             self.following_wall = Wall.RIGHT
 
-    def continue_turning(self, ir_result):
+    def continue_turning(self, ir_result, homing=False):
         if self.turning_to_evade and (any([sensor > self.OBSTACLE_READING_MIN_LEFT for sensor in ir_result[2:3]]) or any([sensor > self.OBSTACLE_READING_MIN_RIGHT for sensor in ir_result[3:4]])):
             return True
 
         self.turning_to_evade = False
+#        if homing:
+ #           self.go(10)
+  #          time.sleep(.5)
         return False
