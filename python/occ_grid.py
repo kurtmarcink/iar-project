@@ -1,8 +1,9 @@
 #!/usr/bin/python
 
 import sys
-import numpy as np
+
 import cv2
+import numpy as np
 
 
 def make_occ_grid(img, n_x, n_y, thresh=.95):

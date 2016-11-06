@@ -3,8 +3,9 @@
 # Displays arena with robot and food marked.
 # Catches key presses and updates food list.
 
-import numpy as np
 import cv2
+import numpy as np
+
 import occ_grid
 
 

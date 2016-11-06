@@ -1,9 +1,10 @@
-from wall import Wall
-
-import serial
-import numpy as np
 import time
+
+import numpy as np
+import serial
+
 from util import normalize_sensor_readings, safe_arctan
+from wall import Wall
 
 
 class Robot:

@@ -1,11 +1,12 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import numpy.random
 import scipy
+import scipy.stats
+
 from filterpy.monte_carlo import systematic_resample
 from numpy.linalg import norm
 from numpy.random import randn
-import scipy.stats
 from numpy.random import seed
 
 

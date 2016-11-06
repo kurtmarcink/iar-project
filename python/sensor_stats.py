@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
-from robot import Robot
 import time
-from getch import getch
-import numpy
 from collections import OrderedDict
+
+import numpy
+
+from getch import getch
+from robot import Robot
 
 
 def main():

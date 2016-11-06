@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
-from robot import Robot
-
-import numpy as np
-import time
-import turtle
-import traceback
 import logging
 import pprint
+import time
+import traceback
+import turtle
+
+import numpy as np
+
+from robot import Robot
 
 
 def main():
