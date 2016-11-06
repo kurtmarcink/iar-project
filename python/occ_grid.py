@@ -4,7 +4,10 @@ import sys
 import numpy as np
 import cv2
 
+
 def make_occ_grid(img, n_x, n_y, thresh=.95):
+    np.set_printoptions(threshold=np.inf)
+
     img /= 255
     ht, wd, dp = img.shape
     x_sz = int(wd / n_x)
@@ -18,6 +21,7 @@ def make_occ_grid(img, n_x, n_y, thresh=.95):
                 occ_grid[y, x] = 255
     return occ_grid
 
+
 def show_occ_grid(occ_grid, scale):
     ht, wd = occ_grid.shape[0:2]
     img = np.zeros([scale * ht, scale * wd], np.uint8)
@@ -28,12 +32,13 @@ def show_occ_grid(occ_grid, scale):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
+
 def main(argv):
     img = cv2.imread(argv[0])
     # (56, 30) corresponds roughly to 2.5 x 2.5cm blocks
     occ_grid = make_occ_grid(img, 56, 30, thresh=.5)
     # Zoom the occupancy grid so it is visible
-    show_occ_grid(occ_grid, 16)
+    # show_occ_grid(occ_grid, 16)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
