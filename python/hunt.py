@@ -29,9 +29,12 @@ def main():
 
                 def check_hit_something():
                     if robot.going_to_hit_obstacle():
-                        robot.set_angle(20)
+                        robot.stop()
+                        time.sleep(.5)
+                        robot.turn_at_angle(20)
                         check_hit_something()
 
+                time.sleep(.2)
                 check_hit_something()
 
         except KeyboardInterrupt:

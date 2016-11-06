@@ -186,6 +186,12 @@ class Robot:
 
         return self._send_command("C," + str(int(counts[0] + left_count)) + "," + str(int(counts[1] + right_count)))
 
+    def turn_at_angle(self, degrees):
+        counts = (1036 * degrees) / 180
+        self.set_wheel_positions(-counts, counts)
+        time.sleep(.5)
+        self.pose[2] = (self.pose[2] + degrees) % 360
+
     def going_to_hit_obstacle(self):
         """ Should (hopefully) supersede #avoid_obstacle """
 
