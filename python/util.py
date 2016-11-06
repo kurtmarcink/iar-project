@@ -1,3 +1,4 @@
+import numpy as np
 from sympy.solvers import solve
 from sympy import Symbol
 
@@ -45,4 +46,18 @@ def normalize_sensor_readings(readings_arr):
             raise TypeError('Encountered an imaginary number')
 
     return list(map(to_positive_float, arr))
+
+
+def safe_arctan(x, y):
+    if x == 0:
+        if y > 0:
+            return 3 / 2 * np.pi
+        else:
+            return np.pi / 2
+    ang = np.arctan(y / x)
+    if ang < 0:
+        ang += 2 * np.pi
+    if y < 0:
+        ang += np.pi
+    return ang
 
