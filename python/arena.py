@@ -29,6 +29,10 @@ class Arena:
         return (int(coord[0] / self.x_sc * self.scale),
                 int((self.y_sz - coord[1]) / self.y_sc * self.scale))
 
+    def cm_to_grid(self, coord):
+        return (int(coord[0] / self.x_sc),
+                int((self.y_sz - coord[1]) / self.y_sc))
+
     def show(self, pos=None, scale=16):
         ht, wd = self.grid.shape[0:2]
         img = np.zeros([scale * ht, scale * wd, 3], np.uint8)
