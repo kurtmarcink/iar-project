@@ -109,7 +109,7 @@ class Robot:
 
         if self.arena:
             mean_count = (counts['left'] + counts['right']) / 2.0
-            cm = mean_count * TICKS_TO_CM
+            cm = mean_count * self.TICKS_TO_CM
             self.arena.add_straight(cm)
 
         self.set_counts(0, 0)
@@ -166,8 +166,12 @@ class Robot:
             dx = self.arena.robot_x - self.arena.home_x
             dy = self.arena.robot_y - self.arena.home_y
             angle = 180 + safe_arctan(float(dx), float(dy)) * 180 / np.pi
-            dangle = angle - self.arena.robot_angle
-            self.turn_at_angle(dangle)
+            dangle = (angle - self.arena.robot_angle) % 360
+            if dangle > 180:
+                dangle -= 360
+            print "\nangle to turn: " + str(dangle)
+            if abs(dangle) > 10:
+                self.turn_at_angle(dangle)
 
     def distance_home(self):
         if self.arena:
@@ -210,6 +214,7 @@ class Robot:
         return self._send_command("C," + str(int(counts[0] + left_count)) + "," + str(int(counts[1] + right_count)))
 
     def turn_at_angle(self, degrees):
+        self.stop()
         counts = (1036 * degrees) / 180
         self.set_wheel_positions(-counts, counts)
         time.sleep(.5)
@@ -222,9 +227,11 @@ class Robot:
 
         distances = normalize_sensor_readings(self.read_ir())
 
-        if (distances[0] <= 0.5 or distances[1] <= 1 or
-            distances[2] <= 2 or distances[3] <= 2 or
-            distances[4] <= 1 or distances[5] <= .5):
+        print distances
+
+        if (distances[0] <= 0.5 or distances[1] <= 2 or
+            distances[2] <= 3 or distances[3] <= 3 or
+            distances[4] <= 2 or distances[5] <= .5):
 
             return True
 

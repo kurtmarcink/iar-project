@@ -5,7 +5,7 @@ import time
 import traceback
 
 from arena import build_arena
-from particle_filter import ParticleFilter
+# from particle_filter import ParticleFilter
 from robot import Robot
 
 
@@ -16,10 +16,17 @@ def main():
 
     robot = Robot(arena)
 
-    landmarks = arena.get_landmarks()
+    landmarks = arena.get_landmarks_in_grid()
     initial_pos = arena.get_robot_in_grid() + (0,)
 
     # pf = ParticleFilter(initial_pos, landmarks, 5000)
+
+    def check_hit_something():
+        if robot.going_to_hit_obstacle():
+            robot.stop()
+            time.sleep(.3)
+            robot.turn_at_angle(20)
+            check_hit_something()
 
     def search_for_food():
         try:
@@ -27,15 +34,8 @@ def main():
             while True:
                 robot.go(10)
 
-                def check_hit_something():
-                    if robot.going_to_hit_obstacle():
-                        robot.stop()
-                        time.sleep(.5)
-                        robot.turn_at_angle(20)
-                        check_hit_something()
-
-                robot.arena.show(wait_time=200)
-                # time.sleep(.2)
+                # robot.arena.show(wait_time=200)
+                time.sleep(.02)
                 check_hit_something()
 
         except KeyboardInterrupt:
@@ -48,24 +48,20 @@ def main():
         try:
             while robot.distance_home > 10:
                 robot.face_home()
-
-                def check_hit_something():
-                    if robot.going_to_hit_obstacle():
-                        robot.stop()
-                        time.sleep(.5)
-                        robot.turn_at_angle(20)
-                        check_hit_something()
-
                 check_hit_something()
                 robot.go(10)
-                robot.arena.show(wait_time=200)
+                # robot.arena.show(wait_time=20)
+                time.sleep(.02)
 
             robot.stop()
+            print('HOME')
             robot.blink_leds()
-            search_for_food()
+
 
         except KeyboardInterrupt:
             robot.stop()
+
+    search_for_food()
 
 if __name__ == '__main__':
     main()
