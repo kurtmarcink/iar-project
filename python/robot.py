@@ -182,6 +182,7 @@ class Robot:
     def read_ir(self):
         ir_string = self._send_command("N")
 
+        print ir_string
         try:
             return self._parse_sensor_string(ir_string)
 

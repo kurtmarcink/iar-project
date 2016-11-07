@@ -41,8 +41,6 @@ def main():
         except KeyboardInterrupt:
             go_home()
 
-        except Exception:
-            logging.error(traceback.format_exc())
 
     def go_home():
         try:
@@ -61,7 +59,16 @@ def main():
         except KeyboardInterrupt:
             robot.stop()
 
-    search_for_food()
+    try:
+        search_for_food()
+
+    except Exception:
+        logging.error(traceback.format_exc())
+
+    finally:
+        robot.stop()
+
+
 
 if __name__ == '__main__':
     main()
