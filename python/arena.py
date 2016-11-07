@@ -15,7 +15,10 @@ class Arena:
 
         self.robot_x = 67
         self.robot_y = 15
-        self.robot_angle = 0
+        self.robot_angle = 90
+
+        self.home_x = 67
+        self.home_y = 15
 
         self.x_sz = x_sz
         self.y_sz = y_sz
@@ -60,7 +63,7 @@ class Arena:
     def get_robot_in_grid(self):
         return self.cm_to_grid((self.robot_x, self.robot_y))
 
-    def show(self, scale=16):
+    def show(self, scale=16, wait_time=200):
         ht, wd = self.grid.shape[0:2]
         img = np.zeros([scale * ht, scale * wd, 3], np.uint8)
         for y in xrange(ht):
@@ -76,7 +79,17 @@ class Arena:
         cv2.circle(img, coord, scale * 3 / 2, self.GREEN, -1)
 
         cv2.imshow('Arena', img)
-        cv2.waitKey(0)
+        cv2.waitKey(wait_time)
+
+    def add_angle(self, angle):
+        self.robot_angle = (self.robot_angle + angle) % 360
+
+    def add_straight(self, cm):
+        self.robot_x += cm * np.cos(self.robot_angle * np.pi / 180)
+        self.robot_y += cm * np.sin(self.robot_angle * np.pi / 180)
+
+    def mark_food(self):
+        self.food.append((self.robot_x, self.robot_y))
 
 
 def build_arena(img):

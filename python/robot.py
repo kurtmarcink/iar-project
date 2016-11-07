@@ -5,16 +5,18 @@ import serial
 
 from util import normalize_sensor_readings, safe_arctan
 from wall import Wall
+import arena
 
 
 class Robot:
-    def __init__(self):
+    def __init__(self, arena=None):
         self.conn = self._open_connection()
         self.following_wall = Wall.NONE
         self.__turning_to_evade = False
         self.move_list = [dict(left_speed=0, right_speed=0)]
         self.current_speed = (0, 0)
         self.pose = [0, 0, 0]
+        self.arena = arena
 
     CURVE_LEFT_VAL = (11, 13)
     CURVE_RIGHT_VAL = CURVE_LEFT_VAL[::-1]
@@ -26,6 +28,8 @@ class Robot:
     OBSTACLE_READING_MIN_RIGHT = 150
 
     WALL_FOLLOWING_MIN = 150
+
+    TICKS_TO_CM = .08
 
     @property
     def turning_to_evade(self):
@@ -94,14 +98,19 @@ class Robot:
             return sensor_vals
 
     def _set_speeds(self, left, right, homing=False):
-        if not homing and self.current_speed == (left, right):
-            return
+        # if not homing and self.current_speed == (left, right):
+        #     return
 
         counts = self.read_wheel_counts()
         self.move_list[-1]['left_wheel_count'] = counts['left']
         self.move_list[-1]['right_wheel_count'] = counts['right']
         self.update_pose()
         self.move_list.append(dict(left_speed=left, right_speed=right))
+
+        if self.arena:
+            mean_count = (counts['left'] + counts['right']) / 2.0
+            cm = mean_count * TICKS_TO_CM
+            self.arena.add_straight(cm)
 
         self.set_counts(0, 0)
 
@@ -152,6 +161,20 @@ class Robot:
 
         self.stop()
 
+    def face_home(self):
+        if self.arena:
+            dx = self.arena.robot_x - self.arena.home_x
+            dy = self.arena.robot_y - self.arena.home_y
+            angle = 180 + safe_arctan(float(dx), float(dy)) * 180 / np.pi
+            dangle = angle - self.arena.robot_angle
+            self.turn_at_angle(dangle)
+
+    def distance_home(self):
+        if self.arena:
+            dx = self.arena.robot_x - self.arena.home_x
+            dy = self.arena.robot_y - self.arena.home_y
+            return np.sqrt(dx * dx + dy * dy)
+
     def read_ir(self):
         ir_string = self._send_command("N")
 
@@ -191,6 +214,8 @@ class Robot:
         self.set_wheel_positions(-counts, counts)
         time.sleep(.5)
         self.pose[2] = (self.pose[2] + degrees) % 360
+        if self.arena:
+            self.arena.add_angle(degrees)
 
     def going_to_hit_obstacle(self):
         """ Should (hopefully) supersede #avoid_obstacle """

@@ -14,7 +14,7 @@ def main():
     arena.robot_x = 67
     arena.robot_y = 15
 
-    robot = Robot()
+    robot = Robot(arena)
 
     landmarks = arena.get_landmarks()
     initial_pos = arena.get_robot_in_grid() + (0,)
@@ -34,7 +34,8 @@ def main():
                         robot.turn_at_angle(20)
                         check_hit_something()
 
-                time.sleep(.2)
+                robot.arena.show(wait_time=200)
+                # time.sleep(.2)
                 check_hit_something()
 
         except KeyboardInterrupt:
@@ -45,8 +46,21 @@ def main():
 
     def go_home():
         try:
-            # TODO: going home logic
+            while robot.distance_home > 10:
+                robot.face_home()
 
+                def check_hit_something():
+                    if robot.going_to_hit_obstacle():
+                        robot.stop()
+                        time.sleep(.5)
+                        robot.turn_at_angle(20)
+                        check_hit_something()
+
+                check_hit_something()
+                robot.go(10)
+                robot.arena.show(wait_time=200)
+
+            robot.stop()
             robot.blink_leds()
             search_for_food()
 
