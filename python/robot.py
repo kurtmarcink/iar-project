@@ -9,7 +9,7 @@ import arena
 
 
 class Robot:
-    def __init__(self, arena=None):
+    def __init__(self, particle_filter=None, arena=None):
         self.conn = self._open_connection()
         self.following_wall = Wall.NONE
         self.__turning_to_evade = False
@@ -20,6 +20,7 @@ class Robot:
         self.prev_count = (0, 0)
 
         self.set_counts(0, 0)
+        self.particle_filter = particle_filter
 
     CURVE_LEFT_VAL = (11, 13)
     CURVE_RIGHT_VAL = CURVE_LEFT_VAL[::-1]
@@ -32,7 +33,7 @@ class Robot:
 
     WALL_FOLLOWING_MIN = 150
 
-    TICKS_TO_CM = .08
+    TICKS_TO_CM = .008
     DEGREES_TO_TICKS = 815.0 / 180
     # DEGREES_TO_TICKS = 1036.0 / 180 # Shelob
 
@@ -95,7 +96,6 @@ class Robot:
     def _parse_sensor_string(self, sensor_string):
         try:
             sensor_string = sensor_string[2:].rstrip(' \t\n\r')
-            print 'sensor_string: "' + str(sensor_string) + '"'
             sensor_vals = [int(ss) for ss in sensor_string.split(",")]
             return sensor_vals
         except Exception:
@@ -107,19 +107,27 @@ class Robot:
         #     return
 
         counts = self.read_wheel_counts()
+
         left_count = counts['left'] - self.prev_count[0]
         right_count = counts['right'] - self.prev_count[1]
+
         self.move_list[-1]['left_wheel_count'] = left_count
         self.move_list[-1]['right_wheel_count'] = right_count
+
         self.update_pose()
+
         self.move_list.append(dict(left_speed=left, right_speed=right))
 
         if self.arena:
             mean_count = (left_count + right_count) / 2.0
             cm = mean_count * self.TICKS_TO_CM
-            self.arena.add_straight(cm)
 
-        self.prev_counts = (counts['left'], counts['right'])
+            sensor_count = normalize_sensor_readings(self.read_ir())
+
+            self.arena.add_straight(cm)
+            self.particle_filter.go(cm, 0, np.mean((sensor_count[3], sensor_count[4])))
+
+        self.prev_count = (counts['left'], counts['right'])
 
         self.current_speed = (left, right)
         return self._send_command("D," + str(int(left)) + "," + str(int(right)))
@@ -191,14 +199,13 @@ class Robot:
     def read_ir(self):
         ir_string = self._send_command("N")
 
-        print ir_string
         try:
             return self._parse_sensor_string(ir_string)
 
         except ValueError:
             return self.read_ir()
 
-    def go(self, speed, homing=False, wonky=True):
+    def go(self, speed, homing=False, wonky=False):
         if wonky and speed != 0:
             return self._set_speeds(speed, speed+4, homing)
         return self._set_speeds(speed, speed, homing)
@@ -230,9 +237,13 @@ class Robot:
 
     def turn_at_angle(self, degrees):
         self.stop()
-        counts = int(degrees * self.DEGREES_TO_TICKS)
+        counts = (1025 * degrees) / 180
         self.set_wheel_positions(-counts, counts)
         time.sleep(1)
+
+        sensor_count = normalize_sensor_readings(self.read_ir())
+        self.particle_filter.go(0, degrees, np.mean((sensor_count[3], sensor_count[4])))
+
         self.pose[2] = (self.pose[2] + degrees) % 360
         if self.arena:
             self.arena.add_angle(degrees)
@@ -242,11 +253,11 @@ class Robot:
 
         distances = normalize_sensor_readings(self.read_ir())
 
-        print distances
+        print "DISTANCES: " + str(distances)
 
-        if (distances[0] <= 0.5 or distances[1] <= 1 or
-            distances[2] <= 2.5 or distances[3] <= 2.5 or
-            distances[4] <= 1 or distances[5] <= .5):
+        if (distances[0] <= 1 or distances[1] <= 2.5 or
+            distances[2] <= 3 or distances[3] <= 3 or
+            distances[4] <= 2.5 or distances[5] <= 1):
 
             if np.argmin(distances[:5]) <= 2:
                 return 1
@@ -276,7 +287,7 @@ class Robot:
 
             # 1045 wheel turns is 180 degrees, so use this ratio to determine the angle
             # 180 / 1045 = angle / distance
-            angle = distance / self.DEGREES_TO_TICKS
+            angle = (180 * distance) / 1025
             # robot turns right
             if move['left_speed'] > move['right_speed']:
                 angle *= -1

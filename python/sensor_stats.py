@@ -16,15 +16,15 @@ def main():
     pos_dict = OrderedDict()
 
     pos_dict['front'] = (1, 2, 3, 4)
-    pos_dict['left_corner'] = (0, 1, 2)
-    pos_dict['left_side'] = (0, 1, 2)
-    pos_dict['left_side_sideways'] = (0, 1, 2)
-    pos_dict['right_corner'] = (3, 4, 5)
-    pos_dict['right_side'] = (3, 4, 5)
-    pos_dict['right_side_sideways'] = (3, 4, 5)
-    pos_dict['rear'] = (6, 7)
+    # pos_dict['left_corner'] = (0, 1, 2)
+    # pos_dict['left_side'] = (0, 1, 2)
+    # pos_dict['left_side_sideways'] = (0, 1, 2)
+    # pos_dict['right_corner'] = (3, 4, 5)
+    # pos_dict['right_side'] = (3, 4, 5)
+    # pos_dict['right_side_sideways'] = (3, 4, 5)
+    # pos_dict['rear'] = (6, 7)
 
-    color = "circle"
+    color = "light_wood_different_robot"
     distance = raw_input('cm: ') + 'cm'
 
     def store_sensor_readings():
@@ -35,8 +35,13 @@ def main():
             t_end = time.time() + 5
 
             while time.time() < t_end:
-                ir = robot.read_ir()
-                readings.append([ir[idx] for idx, val in enumerate(ir) if idx in sensors])
+                ir = None
+                try:
+                    ir = robot.read_ir()
+                    readings.append([ir[idx] for idx, val in enumerate(ir) if idx in sensors])
+
+                except TypeError:
+                    print ir
                 time.sleep(.02)
 
             mean_arr = []
