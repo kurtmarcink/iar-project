@@ -63,7 +63,7 @@ class Arena:
             col_x = int(np.round(x + i * np.cos(rad)))
             col_y = int(np.round(y + i * np.sin(rad)))
 
-            if col_x >= len(self.grid) or col_y >= len(self.grid[col_x]):
+            if col_x >= len(self.grid) or col_y >= len(self.grid[0]) or col_x < 0 or col_y < 0:
                 return i
 
             if self.grid[col_x][col_y] == 0:
