@@ -198,6 +198,12 @@ class Robot:
             print 'location = (' + str(dx) + ', ' + str(dy) +')'
             return np.sqrt(dx * dx + dy * dy)
 
+    def distance(self, coord):
+        if self.arena:
+            dx = self.arena.robot_x - coord[0]
+            dy = self.arena.robot_y - coord[1]
+            return np.sqrt(dx * dx + dy * dy)
+
     def read_ir(self):
         ir_string = self._send_command("N")
 

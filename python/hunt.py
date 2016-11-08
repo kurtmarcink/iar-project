@@ -84,13 +84,14 @@ def main():
     def go_to_food():
         robot.stop()
         try:
-            while True:
+            while robot.distance(robot.food[0]) > 5:
                 robot.face_food()
                 check_hit_something()
                 robot.go(10)
                 # robot.arena.show(wait_time=20)
                 # time.sleep(.02)
                 arena.show()
+            search_for_food()
         except KeyboardInterrupt:
             go_home()
 
