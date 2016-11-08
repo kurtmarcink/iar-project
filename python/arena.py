@@ -28,6 +28,9 @@ class Arena:
         self.x_sc = self.x_sz / float(wd)
         self.y_sc = self.y_sz / float(ht)
 
+        self.pf_robot_x = 67
+        self.pf_robot_y = 15
+
         # display scale
         self.scale = 16
         self.particles = []
@@ -39,6 +42,7 @@ class Arena:
     BLUE = (255, 0, 0)
     RED = (0, 0, 255)
     GREEN = (0, 255, 0)
+    PURPLE = (160, 32, 240)
 
     def cm_to_img(self, coord, scale=None):
         if not scale:
@@ -86,8 +90,10 @@ class Arena:
             cv2.circle(img, coords, scale, self.RED, -1)
 
         coord = self.cm_to_img((self.robot_x, self.robot_y))
+        pf_coord = self.cm_to_img((self.pf_robot_x, self.pf_robot_y))
 
         cv2.circle(img, coord, scale * 3 / 2, self.GREEN, -1)
+        cv2.circle(img, pf_coord, scale * 3 / 2, self.PURPLE, -1)
 
         cv2.imshow('Arena', img)
         cv2.waitKey(1)

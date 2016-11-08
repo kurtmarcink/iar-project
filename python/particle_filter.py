@@ -111,5 +111,9 @@ class ParticleFilter:
             self.resample_from_index(self.particles, self.weights, indexes)
 
         mu, var = self.estimate(self.particles, self.weights)
+
+        self.arena.pf_robot_x = mu[0]
+        self.arena.pf_robot_y = mu[1]
+
         return mu
 
