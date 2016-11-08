@@ -42,7 +42,7 @@ class Arena:
     BLUE = (255, 0, 0)
     RED = (0, 0, 255)
     GREEN = (0, 255, 0)
-    PURPLE = (160, 32, 240)
+    PURPLE = (57, 18, 76)
 
     def cm_to_img(self, coord, scale=None):
         if not scale:
@@ -86,7 +86,7 @@ class Arena:
             cv2.circle(img, coords, scale, self.RED, -1)
 
         for particle_pos in self.particles:
-            coords = self.cm_to_img(particle_pos, scale=5)
+            coords = self.cm_to_img(particle_pos, scale=3)
             cv2.circle(img, coords, scale, self.RED, -1)
 
         coord = self.cm_to_img((self.robot_x, self.robot_y))
