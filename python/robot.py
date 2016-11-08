@@ -17,6 +17,9 @@ class Robot:
         self.current_speed = (0, 0)
         self.pose = [0, 0, 0]
         self.arena = arena
+        self.prev_count = (0, 0)
+
+        self.set_counts(0, 0)
 
     CURVE_LEFT_VAL = (11, 13)
     CURVE_RIGHT_VAL = CURVE_LEFT_VAL[::-1]
@@ -30,6 +33,8 @@ class Robot:
     WALL_FOLLOWING_MIN = 150
 
     TICKS_TO_CM = .08
+    DEGREES_TO_TICKS = 815.0 / 180
+    # DEGREES_TO_TICKS = 1036.0 / 180 # Shelob
 
     @property
     def turning_to_evade(self):
@@ -88,31 +93,33 @@ class Robot:
         return answer
 
     def _parse_sensor_string(self, sensor_string):
-        if len(sensor_string) < 1:
-            return -1
-
-        else:
+        try:
             sensor_string = sensor_string[2:].rstrip(' \t\n\r')
+            print 'sensor_string: "' + str(sensor_string) + '"'
             sensor_vals = [int(ss) for ss in sensor_string.split(",")]
-
             return sensor_vals
+        except Exception:
+            print 'PARSE ISSUE'
+            return -1
 
     def _set_speeds(self, left, right, homing=False):
         # if not homing and self.current_speed == (left, right):
         #     return
 
         counts = self.read_wheel_counts()
-        self.move_list[-1]['left_wheel_count'] = counts['left']
-        self.move_list[-1]['right_wheel_count'] = counts['right']
+        left_count = counts['left'] - self.prev_count[0]
+        right_count = counts['right'] - self.prev_count[1]
+        self.move_list[-1]['left_wheel_count'] = left_count
+        self.move_list[-1]['right_wheel_count'] = right_count
         self.update_pose()
         self.move_list.append(dict(left_speed=left, right_speed=right))
 
         if self.arena:
-            mean_count = (counts['left'] + counts['right']) / 2.0
+            mean_count = (left_count + right_count) / 2.0
             cm = mean_count * self.TICKS_TO_CM
             self.arena.add_straight(cm)
 
-        self.set_counts(0, 0)
+        self.prev_counts = (counts['left'], counts['right'])
 
         self.current_speed = (left, right)
         return self._send_command("D," + str(int(left)) + "," + str(int(right)))
@@ -131,7 +138,7 @@ class Robot:
         time.sleep(.5)
 
         delta_angle = (angle - self.pose[2]) % 360
-        counts = delta_angle * 1036 / 180
+        counts = delta_angle * self.DEGREES_TO_TICKS
 
         self.set_wheel_positions(int(-1 * counts), int(counts))
         self.pose[2] = angle % 360
@@ -165,7 +172,8 @@ class Robot:
         if self.arena:
             dx = self.arena.robot_x - self.arena.home_x
             dy = self.arena.robot_y - self.arena.home_y
-            angle = 180 + safe_arctan(float(dx), float(dy)) * 180 / np.pi
+            # angle = 180 + safe_arctan(float(dx), float(dy)) * 180 / np.pi
+            angle = 180 + np.arctan2(dy, dx) * 180 / np.pi
             dangle = (angle - self.arena.robot_angle) % 360
             if dangle > 180:
                 dangle -= 360
@@ -177,6 +185,7 @@ class Robot:
         if self.arena:
             dx = self.arena.robot_x - self.arena.home_x
             dy = self.arena.robot_y - self.arena.home_y
+            print 'location = (' + str(dx) + ', ' + str(dy) +')'
             return np.sqrt(dx * dx + dy * dy)
 
     def read_ir(self):
@@ -189,10 +198,14 @@ class Robot:
         except ValueError:
             return self.read_ir()
 
-    def go(self, speed, homing=False):
+    def go(self, speed, homing=False, wonky=True):
+        if wonky and speed != 0:
+            return self._set_speeds(speed, speed+4, homing)
         return self._set_speeds(speed, speed, homing)
 
-    def stop(self):
+    def stop(self, emergency=False):
+        if emergency:
+            self._send_command("D,0,0")
         return self.go(0)
 
     def turn(self, left, right):
@@ -200,10 +213,11 @@ class Robot:
 
     def read_wheel_counts(self):
         count_string = self._send_command("H")
-
         count_list = self._parse_sensor_string(count_string)
-
-        return dict(left=float(count_list[0]), right=float(count_list[1]))
+        try:
+            return dict(left=float(count_list[0]), right=float(count_list[1]))
+        except TypeError:
+            return self.read_wheel_counts()
 
     def set_counts(self, left_count, right_count):
         return self._send_command("G," + str(left_count) + "," + str(right_count))
@@ -216,9 +230,9 @@ class Robot:
 
     def turn_at_angle(self, degrees):
         self.stop()
-        counts = (1036 * degrees) / 180
+        counts = int(degrees * self.DEGREES_TO_TICKS)
         self.set_wheel_positions(-counts, counts)
-        time.sleep(.5)
+        time.sleep(1)
         self.pose[2] = (self.pose[2] + degrees) % 360
         if self.arena:
             self.arena.add_angle(degrees)
@@ -230,11 +244,20 @@ class Robot:
 
         print distances
 
-        if (distances[0] <= 0.5 or distances[1] <= 2 or
-            distances[2] <= 3 or distances[3] <= 3 or
-            distances[4] <= 2 or distances[5] <= .5):
+        if (distances[0] <= 0.5 or distances[1] <= 1 or
+            distances[2] <= 2.5 or distances[3] <= 2.5 or
+            distances[4] <= 1 or distances[5] <= .5):
 
-            return True
+            if np.argmin(distances[:5]) <= 2:
+                return 1
+            return 2
+
+    def get_distances(self, inds):
+        distances = normalize_sensor_readings(self.read_ir())
+        dists = []
+        for i in inds:
+            dists.append(distances[i])
+        return dists
 
     def update_pose(self):
         move = self.move_list[-1]
@@ -253,7 +276,7 @@ class Robot:
 
             # 1045 wheel turns is 180 degrees, so use this ratio to determine the angle
             # 180 / 1045 = angle / distance
-            angle = (180 * distance) / 1036
+            angle = distance / self.DEGREES_TO_TICKS
             # robot turns right
             if move['left_speed'] > move['right_speed']:
                 angle *= -1
@@ -378,3 +401,33 @@ class Robot:
         self.turning_to_evade = False
 
         return False
+
+    def pinpoint_home(self):
+        dangle = (270 - self.arena.robot_angle) % 360
+        if dangle > 180:
+            dangle -= 360
+        if abs(dangle) > 10:
+            self.turn_at_angle(dangle)
+
+        def front_touching():
+            dists = self.get_distances([2, 3])
+            if dists[0] < 1.5 or dists[1] < 1.5:
+                return True
+
+        while not front_touching():
+            self.go(6)
+            time.sleep(.02)
+        while self.get_distances([4])[0] <= 0.1:
+            self.turn_at_angle(20)
+        while not front_touching():
+            self.go(10)
+            time.sleep(.02)
+        while front_touching():
+            self.turn_at_angle(20)
+        self.go(10)
+        time.sleep(1)
+        self.turn_at_angle(90)
+        self.go(10)
+        time.sleep(1)
+        self.turn_at_angle(-90)
+

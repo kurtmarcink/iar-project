@@ -89,6 +89,13 @@ class Arena:
         self.robot_y += cm * np.sin(self.robot_angle * np.pi / 180)
 
     def mark_food(self):
+        # Avoid duplicate food locations
+        for food_loc in self.food:
+            if np.sqrt((food_loc[0] - self.robot_x) *
+                       (food_loc[0] - self.robot_x) +
+                       (food_loc[1] - self.robot_y) *
+                       (food_loc[1] - self.robot_y)) < 20:
+                self.food.remove(food_loc)
         self.food.append((self.robot_x, self.robot_y))
 
 

@@ -48,7 +48,6 @@ def normalize_sensor_readings(readings_arr):
 
     def to_positive_float(n):
         try:
-            print 'n = ' + str(n)
             n = float(n)
             return 0 if n < 0 else n
 
