@@ -34,7 +34,8 @@ class Robot:
     WALL_FOLLOWING_MIN = 150
 
     TICKS_TO_CM = .008
-    DEGREES_TO_TICKS = 815.0 / 180
+    DEGREES_TO_TICKS = 1010.0 / 180
+    # DEGREES_TO_TICKS = 815.0 / 180
     # DEGREES_TO_TICKS = 1036.0 / 180 # Shelob
 
     @property
@@ -176,18 +177,19 @@ class Robot:
 
         self.stop()
 
+    def face_food(self):
+        if self.arena and self.arena.food:
+            dx = self.arena.robot_x - self.arena.food[0][0]
+            dy = self.arena.robot_y - self.arena.food[0][1]
+            angle = 180 + np.arctan2(dy, dx) * 180 / np.pi
+            self.turn_to_angle(angle)
+
     def face_home(self):
         if self.arena:
             dx = self.arena.robot_x - self.arena.home_x
             dy = self.arena.robot_y - self.arena.home_y
-            # angle = 180 + safe_arctan(float(dx), float(dy)) * 180 / np.pi
             angle = 180 + np.arctan2(dy, dx) * 180 / np.pi
-            dangle = (angle - self.arena.robot_angle) % 360
-            if dangle > 180:
-                dangle -= 360
-            print "\nangle to turn: " + str(dangle)
-            if abs(dangle) > 10:
-                self.turn_at_angle(dangle)
+            self.turn_to_angle(angle)
 
     def distance_home(self):
         if self.arena:
@@ -202,7 +204,7 @@ class Robot:
         try:
             return self._parse_sensor_string(ir_string)
 
-        except ValueError:
+        except (ValueError, TypeError):
             return self.read_ir()
 
     def go(self, speed, homing=False, wonky=False):
@@ -230,7 +232,7 @@ class Robot:
         return self._send_command("G," + str(left_count) + "," + str(right_count))
 
     def set_wheel_positions(self, left_count, right_count):
-        self.set_counts(0, 0)
+        # self.set_counts(0, 0)
         counts = self._parse_sensor_string(self._send_command("H"))
 
         return self._send_command("C," + str(int(counts[0] + left_count)) + "," + str(int(counts[1] + right_count)))
@@ -247,6 +249,14 @@ class Robot:
         self.pose[2] = (self.pose[2] + degrees) % 360
         if self.arena:
             self.arena.add_angle(degrees)
+
+    def turn_to_angle(self, degrees):
+        dangle = (degrees - self.arena.robot_angle) % 360
+        if dangle > 180:
+            dangle -= 360
+        if abs(dangle) > 10:
+            self.turn_at_angle(dangle)
+
 
     def going_to_hit_obstacle(self):
         """ Should (hopefully) supersede #avoid_obstacle """
@@ -265,6 +275,7 @@ class Robot:
 
     def get_distances(self, inds):
         distances = normalize_sensor_readings(self.read_ir())
+        print "DISTANCES: " + str(distances)
         dists = []
         for i in inds:
             dists.append(distances[i])
@@ -414,31 +425,58 @@ class Robot:
         return False
 
     def pinpoint_home(self):
-        dangle = (270 - self.arena.robot_angle) % 360
-        if dangle > 180:
-            dangle -= 360
-        if abs(dangle) > 10:
-            self.turn_at_angle(dangle)
-
         def front_touching():
             dists = self.get_distances([2, 3])
-            if dists[0] < 1.5 or dists[1] < 1.5:
+            if dists[0] < .5 and dists[1] < .5:
                 return True
 
-        while not front_touching():
-            self.go(6)
-            time.sleep(.02)
-        while self.get_distances([4])[0] <= 0.1:
-            self.turn_at_angle(20)
-        while not front_touching():
-            self.go(10)
-            time.sleep(.02)
-        while front_touching():
-            self.turn_at_angle(20)
-        self.go(10)
-        time.sleep(1)
-        self.turn_at_angle(90)
-        self.go(10)
-        time.sleep(1)
-        self.turn_at_angle(-90)
+        def side_on():
+            dists = self.get_distances([2, 3, 4, 5])
+            if (dists[0] > 3 and
+                dists[1] > 3 and
+                dists[2] > 2.5 and
+                dists[3] < 2.8):
+                return True
 
+        def corner_to_home():
+            self.turn_at_angle(90)
+            self.go(6)
+            time.sleep(2.2)
+            self.turn_at_angle(-90)
+            self.go(6)
+            time.sleep(2.2)
+            self.stop()
+
+        def backup():
+            self.go(-2)
+            time.sleep(1)
+            self.stop()
+
+        def wiggle():
+            self.set_wheel_positions(200, 0)
+            time.sleep(.5)
+            self.set_wheel_positions(0, 200)
+            time.sleep(.5)
+
+        wiggle()
+        wiggle()
+        wiggle()
+        wiggle()
+        wiggle()
+        return
+        self.turn_to_angle(-90)
+        while not front_touching():
+            self.go(8)
+            time.sleep(.02)
+        wiggle()
+        backup()
+        return
+        while not side_on():
+            self.turn_at_angle(15)
+        while not front_touching():
+            self.go(8)
+            time.sleep(.02)
+        backup()
+        while not side_on():
+            self.turn_at_angle(20)
+        corner_to_home()

@@ -78,14 +78,14 @@ class Arena:
                 img[y*scale:(y+1)*scale, x*scale:(x+1)*scale, :] = self.grid[ht-y-1, x]
 
         for food_pos in self.food:
-            coords = self.cm_to_img(food_pos, scale=5)
-            cv2.circle(img, coords, scale, self.RED, -1)
+            coords = self.cm_to_img(food_pos, scale=scale)
+            cv2.circle(img, coords, scale, self.BLUE, -1)
 
         for particle_pos in self.particles:
-            coords = self.cm_to_img(particle_pos, scale=5)
+            coords = self.cm_to_img(particle_pos, scale=scale)
             cv2.circle(img, coords, scale, self.RED, -1)
 
-        coord = self.cm_to_img((self.robot_x, self.robot_y))
+        coord = self.cm_to_img((self.robot_x, self.robot_y), scale=scale)
 
         cv2.circle(img, coord, scale * 3 / 2, self.GREEN, -1)
 

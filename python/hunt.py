@@ -12,7 +12,7 @@ from robot import Robot
 def main():
     arena = build_arena('arena_16_small.bmp')
 
-    pf = ParticleFilter(50, arena)
+    pf = ParticleFilter(500, arena)
 
     robot = Robot(pf, arena)
     robot.set_counts(0, 0)
@@ -47,7 +47,7 @@ def main():
         try:
             start_time = time.time()
 
-            while time.time() < start_time + 6:
+            while True: # time.time() < start_time + 6:
                 robot.go(4)
 
                 time.sleep(.02)
@@ -63,15 +63,17 @@ def main():
         robot.stop()
         robot.arena.mark_food()
         try:
-            while robot.distance_home() > 20:
+            while robot.distance_home() > 5:
                 print 'Distance to home: ' + str(robot.distance_home()) + ' cm'
                 robot.face_home()
                 check_hit_something()
                 robot.go(10)
                 # robot.arena.show(wait_time=20)
-                time.sleep(.02)
+                # time.sleep(.02)
+                arena.show()
 
             robot.stop()
+            # robot.pinpoint_home()
             print('HOME')
             robot.blink_leds()
 
@@ -79,9 +81,26 @@ def main():
         except KeyboardInterrupt:
             robot.stop()
 
+    def go_to_food():
+        robot.stop()
+        try:
+            while True:
+                robot.face_food()
+                check_hit_something()
+                robot.go(10)
+                # robot.arena.show(wait_time=20)
+                # time.sleep(.02)
+                arena.show()
+        except KeyboardInterrupt:
+            go_home()
+
+
     try:
         search_for_food()
         # robot.pinpoint_home()
+        while True:
+            go_to_food()
+        corner_to_home(robot)
 
     except Exception:
         logging.error(traceback.format_exc())
