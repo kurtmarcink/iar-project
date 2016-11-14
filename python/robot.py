@@ -231,7 +231,7 @@ class Robot:
         count_list = self._parse_sensor_string(count_string)
         try:
             return dict(left=float(count_list[0]), right=float(count_list[1]))
-        except TypeError:
+        except (TypeError, IndexError):
             return self.read_wheel_counts()
 
     def set_counts(self, left_count, right_count):

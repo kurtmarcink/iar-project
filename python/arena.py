@@ -43,6 +43,7 @@ class Arena:
     RED = (0, 0, 255)
     GREEN = (0, 255, 0)
     PURPLE = (57, 18, 76)
+    BLACK = (0, 0, 0)
 
     def cm_to_img(self, coord, scale=None):
         if not scale:
@@ -83,7 +84,7 @@ class Arena:
 
         for food_pos in self.food:
             coords = self.cm_to_img(food_pos, scale=scale)
-            cv2.circle(img, coords, scale, self.BLUE, -1)
+            cv2.circle(img, coords, scale, self.PURPLE, -1)
 
         for particle_pos in self.particles:
             coords = self.cm_to_img(particle_pos, scale=scale)
@@ -93,7 +94,9 @@ class Arena:
         pf_coord = self.cm_to_img((self.pf_robot_x, self.pf_robot_y), scale=scale)
 
         cv2.circle(img, coord, scale * 3 / 2, self.GREEN, -1)
-        cv2.circle(img, pf_coord, scale * 3 / 2, self.PURPLE, -1)
+        cv2.circle(img, pf_coord, scale * 3 / 2, self.BLUE, -1)
+        home_coord = self.cm_to_img((self.home_x, self.home_y), scale=scale)
+        cv2.circle(img, home_coord, scale * 5, self.BLACK, 1)
 
         cv2.imshow('Arena', img)
         cv2.waitKey(1)
@@ -113,7 +116,7 @@ class Arena:
                        (food_loc[1] - self.robot_y) *
                        (food_loc[1] - self.robot_y)) < 20:
                 self.food.remove(food_loc)
-        self.food.append((self.robot_x, self.robot_y))
+        self.food.insert(0, (self.robot_x, self.robot_y))
 
 
 def build_arena(img):

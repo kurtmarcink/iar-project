@@ -12,7 +12,7 @@ from robot import Robot
 def main():
     arena = build_arena('arena_16_small.bmp')
 
-    pf = ParticleFilter(500, arena)
+    pf = ParticleFilter(200, arena)
 
     robot = Robot(pf, arena)
     robot.set_counts(0, 0)
@@ -84,7 +84,7 @@ def main():
     def go_to_food():
         robot.stop()
         try:
-            while robot.distance(robot.food[0]) > 5:
+            while robot.distance(robot.arena.food[0]) > 5:
                 robot.face_food()
                 check_hit_something()
                 robot.go(10)
@@ -101,7 +101,7 @@ def main():
         # robot.pinpoint_home()
         while True:
             go_to_food()
-        corner_to_home(robot)
+        # corner_to_home(robot)
 
     except Exception:
         logging.error(traceback.format_exc())
